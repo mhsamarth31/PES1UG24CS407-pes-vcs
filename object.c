@@ -209,7 +209,74 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
 // The caller is responsible for calling free(*data_out).
 // Returns 0 on success, -1 on error (file not found, corrupt, etc.).
 int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_t *len_out) {
-    // TODO: Implement
-    (void)id; (void)type_out; (void)data_out; (void)len_out;
-    return -1;
+    // Step 1: Build the file path from the hash
+    char path[512];
+    object_path(id, path, sizeof(path));
+
+    // Step 2: Open and read the entire file into memory
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    fseek(f, 0, SEEK_END);
+    long file_size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if (file_size <= 0) {
+        fclose(f);
+        return -1;
+    }
+
+    void *file_data = malloc((size_t)file_size);
+    if (!file_data) {
+        fclose(f);
+        return -1;
+    }
+
+    if (fread(file_data, 1, (size_t)file_size, f) != (size_t)file_size) {
+        free(file_data);
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+
+    // Step 3: Verify integrity — recompute SHA-256 and compare to expected hash
+    ObjectID computed_id;
+    compute_hash(file_data, (size_t)file_size, &computed_id);
+    if (memcmp(computed_id.hash, id->hash, HASH_SIZE) != 0) {
+        // Integrity check failed — object is corrupted
+        free(file_data);
+        return -1;
+    }
+
+    // Step 4: Parse the header — find the null byte separator
+    char *null_byte = memchr(file_data, '\0', (size_t)file_size);
+    if (!null_byte) {
+        free(file_data);
+        return -1;
+    }
+
+    // Step 5: Determine the object type from the header
+    if (strncmp((char *)file_data, "blob ", 5) == 0) {
+        *type_out = OBJ_BLOB;
+    } else if (strncmp((char *)file_data, "tree ", 5) == 0) {
+        *type_out = OBJ_TREE;
+    } else if (strncmp((char *)file_data, "commit ", 7) == 0) {
+        *type_out = OBJ_COMMIT;
+    } else {
+        free(file_data);
+        return -1;
+    }
+
+    // Step 6: Extract data portion (everything after the \0)
+    size_t header_len = (size_t)(null_byte - (char *)file_data) + 1;
+    *len_out = (size_t)file_size - header_len;
+    *data_out = malloc(*len_out);
+    if (!*data_out) {
+        free(file_data);
+        return -1;
+    }
+
+    memcpy(*data_out, null_byte + 1, *len_out);
+    free(file_data);
+    return 0;
 }
