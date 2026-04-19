@@ -226,7 +226,15 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1; // Failed to serialize commit
     }
 
-    // TODO: Write to object store and update HEAD (next commits)
+    // Step 5: Write the commit to the object store
+    ObjectID commit_id;
+    if (object_write(OBJ_COMMIT, commit_data, commit_len, &commit_id) != 0) {
+        free(commit_data);
+        return -1; // Failed to write commit object
+    }
+    free(commit_data);
+
+    // TODO: Update HEAD (next commit)
     (void)commit_id_out;
     return -1;
 }
