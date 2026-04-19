@@ -125,8 +125,40 @@ int index_load(Index *index);
 static int write_tree_recursive(IndexEntry *entries, int count,
                                  const char *prefix, size_t prefix_len,
                                  ObjectID *id_out) {
-    // TODO: implement recursive tree building (next commit)
-    (void)entries; (void)count; (void)prefix; (void)prefix_len; (void)id_out;
+    Tree tree;
+    tree.count = 0;
+
+    int i = 0;
+    while (i < count) {
+        // Only process entries that match our current prefix
+        if (prefix_len > 0 && strncmp(entries[i].path, prefix, prefix_len) != 0) {
+            i++;
+            continue;
+        }
+
+        // Get the path portion after the prefix
+        const char *remaining = entries[i].path + prefix_len;
+
+        // Check if this entry is a file at the current level (no '/' in remaining)
+        const char *slash = strchr(remaining, '/');
+
+        if (slash == NULL) {
+            // This is a file entry at the current tree level
+            TreeEntry *te = &tree.entries[tree.count];
+            te->mode = entries[i].mode;
+            te->hash = entries[i].hash;
+            strncpy(te->name, remaining, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+            tree.count++;
+            i++;
+        } else {
+            // This is a subdirectory — handle in next commit
+            i++;
+        }
+    }
+
+    // TODO: Serialize and write tree (next commit)
+    (void)id_out;
     return -1;
 }
 
