@@ -225,8 +225,42 @@ int index_save(const Index *index) {
 //
 // Returns 0 on success, -1 on error.
 int index_add(Index *index, const char *path) {
-    // TODO: Implement file staging
-    // (See Lab Appendix for logical steps)
-    (void)index; (void)path;
+    // Step 1: Read file metadata using stat
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        return -1; // File doesn't exist or permission denied
+    }
+
+    if (!S_ISREG(st.st_mode)) {
+        return -1; // We only support regular files in this VCS
+    }
+
+    // Step 2: Read file contents
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    void *data = malloc(st.st_size);
+    if (!data && st.st_size > 0) {
+        fclose(f);
+        return -1;
+    }
+
+    if (st.st_size > 0 && fread(data, 1, st.st_size, f) != (size_t)st.st_size) {
+        free(data);
+        fclose(f);
+        return -1;
+    }
+    fclose(f);
+
+    // Step 3: Write file contents to object store as a BLOB
+    ObjectID hash;
+    if (object_write(OBJ_BLOB, data, st.st_size, &hash) != 0) {
+        free(data);
+        return -1;
+    }
+    free(data);
+
+    // TODO: Update index entry and save (next commit)
+    (void)index;
     return -1;
 }
