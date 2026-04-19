@@ -249,13 +249,16 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     }
 
     // Step 4: Parse the header — find the null byte separator
+    // The object format is: "type size\0data"
+    // memchr safely finds the \0 without going out of bounds
     char *null_byte = memchr(file_data, '\0', (size_t)file_size);
     if (!null_byte) {
         free(file_data);
         return -1;
     }
 
-    // Step 5: Determine the object type from the header
+    // Step 5: Determine the object type from the header prefix
+    // The header starts with "blob ", "tree ", or "commit " followed by the size
     if (strncmp((char *)file_data, "blob ", 5) == 0) {
         *type_out = OBJ_BLOB;
     } else if (strncmp((char *)file_data, "tree ", 5) == 0) {
@@ -263,6 +266,7 @@ int object_read(const ObjectID *id, ObjectType *type_out, void **data_out, size_
     } else if (strncmp((char *)file_data, "commit ", 7) == 0) {
         *type_out = OBJ_COMMIT;
     } else {
+        // Unknown object type — file is malformed
         free(file_data);
         return -1;
     }
