@@ -56,6 +56,11 @@ void test_tree_roundtrip(void) {
     // Verify hashes preserved
     assert(memcmp(parsed.entries[0].hash.hash, original.entries[0].hash.hash, HASH_SIZE) == 0);
 
+    // TEMPORARY FIX for Screenshot 2B:
+    // test_tree doesn't normally write to disk. We write it here so you have a tree object to show.
+    ObjectID dummy_id;
+    object_write(OBJ_TREE, data, len, &dummy_id);
+
     free(data);
 
     printf("PASS: tree serialize/parse roundtrip\n");
