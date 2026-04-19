@@ -200,7 +200,26 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
         return -1; // Failed to create tree
     }
 
-    // TODO: Setup Commit struct, read parent, serialize, and write (next commits)
-    (void)message; (void)commit_id_out;
+    // Step 2: Read the current branch tip to find the parent commit
+    ObjectID parent_id;
+    int has_parent = (head_read(&parent_id) == 0);
+
+    // Step 3: Populate the Commit structure
+    Commit commit;
+    memset(&commit, 0, sizeof(Commit));
+    commit.tree = tree_id;
+    if (has_parent) {
+        commit.has_parent = 1;
+        commit.parent = parent_id;
+    } else {
+        commit.has_parent = 0;
+    }
+    
+    snprintf(commit.author, sizeof(commit.author), "%s", pes_author());
+    commit.timestamp = time(NULL);
+    snprintf(commit.message, sizeof(commit.message), "%s", message);
+
+    // TODO: Serialize, write to object store, and update HEAD (next commits)
+    (void)commit_id_out;
     return -1;
 }
