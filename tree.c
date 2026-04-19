@@ -152,8 +152,42 @@ static int write_tree_recursive(IndexEntry *entries, int count,
             tree.count++;
             i++;
         } else {
-            // This is a subdirectory — handle in next commit
-            i++;
+            // This is a subdirectory entry
+            // Extract the directory name (portion before the first '/')
+            size_t dir_name_len = slash - remaining;
+            char dir_name[256];
+            if (dir_name_len >= sizeof(dir_name)) { return -1; }
+            memcpy(dir_name, remaining, dir_name_len);
+            dir_name[dir_name_len] = '\0';
+
+            // Build the new prefix for this subdirectory (e.g., "src/")
+            char new_prefix[512];
+            snprintf(new_prefix, sizeof(new_prefix), "%s%s/", prefix, dir_name);
+            size_t new_prefix_len = prefix_len + dir_name_len + 1;
+
+            // Count how many entries belong to this subdirectory
+            int sub_count = 0;
+            for (int j = i; j < count; j++) {
+                if (strncmp(entries[j].path, new_prefix, new_prefix_len) == 0)
+                    sub_count++;
+                else if (sub_count > 0)
+                    break;  // entries are sorted, so we can stop early
+            }
+
+            // Recursively build the subtree
+            ObjectID subtree_id;
+            if (write_tree_recursive(entries + i, sub_count, new_prefix, new_prefix_len, &subtree_id) != 0)
+                return -1;
+
+            // Add the subtree entry to the current tree
+            TreeEntry *te = &tree.entries[tree.count];
+            te->mode = MODE_DIR;
+            te->hash = subtree_id;
+            strncpy(te->name, dir_name, sizeof(te->name) - 1);
+            te->name[sizeof(te->name) - 1] = '\0';
+            tree.count++;
+
+            i += sub_count;  // Skip all entries in this subdirectory
         }
     }
 
