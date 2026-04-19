@@ -260,7 +260,27 @@ int index_add(Index *index, const char *path) {
     }
     free(data);
 
-    // TODO: Update index entry and save (next commit)
-    (void)index;
-    return -1;
+    // Step 4: Find existing entry or create a new one
+    IndexEntry *entry = index_find(index, path);
+    if (!entry) {
+        if (index->count >= MAX_INDEX_ENTRIES) return -1;
+        entry = &index->entries[index->count++];
+    }
+
+    // Step 5: Update entry metadata
+    entry->hash = hash;
+    entry->mtime_sec = (uint64_t)st.st_mtime;
+    entry->size = (uint32_t)st.st_size;
+    
+    // Determine mode (executable vs regular file)
+    if (st.st_mode & S_IXUSR) {
+        entry->mode = 0100755;
+    } else {
+        entry->mode = 0100644;
+    }
+
+    snprintf(entry->path, sizeof(entry->path), "%s", path);
+
+    // Step 6: Save the updated index to disk
+    return index_save(index);
 }
