@@ -114,24 +114,41 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
     return 0;
 }
 
-// ─── TODO: Implement these ──────────────────────────────────────────────────
+// Forward declarations for object and index operations
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
+int index_load(Index *index);
+
+// Recursive helper: builds a tree from a subset of sorted index entries
+// that share the prefix up to a given depth level.
+// prefix: the directory prefix being processed (e.g., "src/")
+// prefix_len: length of the prefix string
+static int write_tree_recursive(IndexEntry *entries, int count,
+                                 const char *prefix, size_t prefix_len,
+                                 ObjectID *id_out) {
+    // TODO: implement recursive tree building (next commit)
+    (void)entries; (void)count; (void)prefix; (void)prefix_len; (void)id_out;
+    return -1;
+}
 
 // Build a tree hierarchy from the current index and write all tree
 // objects to the object store.
-//
-// HINTS - Useful functions and concepts for this phase:
-//   - index_load      : load the staged files into memory
-//   - strchr          : find the first '/' in a path to separate directories from files
-//   - strncmp         : compare prefixes to group files belonging to the same subdirectory
-//   - Recursion       : you will likely want to create a recursive helper function 
-//                       (e.g., `write_tree_level(entries, count, depth)`) to handle nested dirs.
-//   - tree_serialize  : convert your populated Tree struct into a binary buffer
-//   - object_write    : save that binary buffer to the store as OBJ_TREE
-//
-// Returns 0 on success, -1 on error.
 int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+    // Step 1: Load the index (staged files)
+    Index *index = calloc(1, sizeof(Index));
+    if (!index) return -1;
+
+    if (index_load(index) != 0) {
+        free(index);
+        return -1;
+    }
+
+    if (index->count == 0) {
+        free(index);
+        return -1;  // Nothing staged
+    }
+
+    // Step 2: Build the tree recursively starting from the root (empty prefix)
+    int result = write_tree_recursive(index->entries, index->count, "", 0, id_out);
+    free(index);
+    return result;
 }
