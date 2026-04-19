@@ -219,7 +219,14 @@ int commit_create(const char *message, ObjectID *commit_id_out) {
     commit.timestamp = time(NULL);
     snprintf(commit.message, sizeof(commit.message), "%s", message);
 
-    // TODO: Serialize, write to object store, and update HEAD (next commits)
+    // Step 4: Serialize the commit object
+    void *commit_data = NULL;
+    size_t commit_len = 0;
+    if (commit_serialize(&commit, &commit_data, &commit_len) != 0) {
+        return -1; // Failed to serialize commit
+    }
+
+    // TODO: Write to object store and update HEAD (next commits)
     (void)commit_id_out;
     return -1;
 }
