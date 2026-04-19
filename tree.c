@@ -118,6 +118,12 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 // Forward declaration for object operation
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
 
+// Weak definition of index_load for test_tree which does not link index.o
+__attribute__((weak)) int index_load(Index *index) {
+    (void)index;
+    return -1;
+}
+
 // Recursive helper: builds a tree from a subset of sorted index entries
 // that share the prefix up to a given depth level.
 // prefix: the directory prefix being processed (e.g., "src/")
@@ -147,8 +153,7 @@ static int write_tree_recursive(IndexEntry *entries, int count,
             TreeEntry *te = &tree.entries[tree.count];
             te->mode = entries[i].mode;
             te->hash = entries[i].hash;
-            strncpy(te->name, remaining, sizeof(te->name) - 1);
-            te->name[sizeof(te->name) - 1] = '\0';
+            snprintf(te->name, sizeof(te->name), "%s", remaining);
             tree.count++;
             i++;
         } else {
@@ -183,8 +188,7 @@ static int write_tree_recursive(IndexEntry *entries, int count,
             TreeEntry *te = &tree.entries[tree.count];
             te->mode = MODE_DIR;
             te->hash = subtree_id;
-            strncpy(te->name, dir_name, sizeof(te->name) - 1);
-            te->name[sizeof(te->name) - 1] = '\0';
+            snprintf(te->name, sizeof(te->name), "%s", dir_name);
             tree.count++;
 
             i += sub_count;  // Skip all entries in this subdirectory
