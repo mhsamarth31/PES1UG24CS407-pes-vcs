@@ -131,7 +131,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     object_path(id_out, path, sizeof(path));
 
     // Extract directory portion (e.g., ".pes/objects/2f")
-    char dir_path[512];
+    char dir_path[256];
     char *last_slash = strrchr(path, '/');
     if (!last_slash) { free(full_data); return -1; }
     size_t dir_len = last_slash - path;
@@ -148,7 +148,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     }
 
     // Step 7: Write to a temporary file in the shard directory
-    char temp_path[512];
+    char temp_path[280];
     snprintf(temp_path, sizeof(temp_path), "%s/tmp_XXXXXX", dir_path);
     int fd = mkstemp(temp_path);
     if (fd < 0) {
