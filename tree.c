@@ -1,7 +1,7 @@
 // tree.c — Tree object serialization and construction
 //
 // PROVIDED functions: get_file_mode, tree_parse, tree_serialize
-// TODO functions:     tree_from_index
+// IMPLEMENTED:        tree_from_index
 //
 // Binary tree format (per entry, concatenated with no separators):
 //   "<mode-as-ascii-octal> <name>\0<32-byte-binary-hash>"
@@ -10,6 +10,7 @@
 //   "100644 hello.txt\0" followed by 32 raw bytes of SHA-256
 
 #include "tree.h"
+#include "index.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -114,9 +115,8 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
     return 0;
 }
 
-// Forward declarations for object and index operations
+// Forward declaration for object operation
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
-int index_load(Index *index);
 
 // Recursive helper: builds a tree from a subset of sorted index entries
 // that share the prefix up to a given depth level.
