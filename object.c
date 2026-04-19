@@ -120,7 +120,34 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
     // Step 4: Compute SHA-256 hash of the full object
     compute_hash(full_data, full_len, id_out);
 
-    // TODO: Check deduplication, write to disk (next commit)
+    // Step 5: Deduplication — if the object already exists, skip writing
+    if (object_exists(id_out)) {
+        free(full_data);
+        return 0;
+    }
+
+    // Step 6: Build the target path and create the shard directory
+    char path[512];
+    object_path(id_out, path, sizeof(path));
+
+    // Extract directory portion (e.g., ".pes/objects/2f")
+    char dir_path[512];
+    char *last_slash = strrchr(path, '/');
+    if (!last_slash) { free(full_data); return -1; }
+    size_t dir_len = last_slash - path;
+    memcpy(dir_path, path, dir_len);
+    dir_path[dir_len] = '\0';
+
+    // Create shard directory if it doesn't exist (mode 0755)
+    struct stat st;
+    if (stat(dir_path, &st) == -1) {
+        if (mkdir(dir_path, 0755) != 0) {
+            free(full_data);
+            return -1;
+        }
+    }
+
+    // TODO: Write object data to disk atomically (next commit)
     free(full_data);
     return 0;
 }
