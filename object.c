@@ -147,7 +147,41 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         }
     }
 
-    // TODO: Write object data to disk atomically (next commit)
+    // Step 7: Write to a temporary file in the shard directory
+    char temp_path[512];
+    snprintf(temp_path, sizeof(temp_path), "%s/tmp_XXXXXX", dir_path);
+    int fd = mkstemp(temp_path);
+    if (fd < 0) {
+        free(full_data);
+        return -1;
+    }
+
+    ssize_t written = write(fd, full_data, full_len);
+    if (written < 0 || (size_t)written != full_len) {
+        close(fd);
+        unlink(temp_path);
+        free(full_data);
+        return -1;
+    }
+
+    // Step 8: fsync the file to ensure data reaches disk
+    fsync(fd);
+    close(fd);
+
+    // Step 9: Atomically rename temp file to final path
+    if (rename(temp_path, path) != 0) {
+        unlink(temp_path);
+        free(full_data);
+        return -1;
+    }
+
+    // Step 10: fsync the shard directory to persist the directory entry
+    int dir_fd = open(dir_path, O_RDONLY);
+    if (dir_fd >= 0) {
+        fsync(dir_fd);
+        close(dir_fd);
+    }
+
     free(full_data);
     return 0;
 }
