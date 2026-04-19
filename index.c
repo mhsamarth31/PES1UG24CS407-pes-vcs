@@ -170,26 +170,36 @@ int index_load(Index *index) {
 
 // Helper for qsort to sort index entries by path
 static int compare_index_entries(const void *a, const void *b) {
-    return strcmp(((const IndexEntry *)a)->path, ((const IndexEntry *)b)->path);
+    const IndexEntry *entryA = *(const IndexEntry **)a;
+    const IndexEntry *entryB = *(const IndexEntry **)b;
+    return strcmp(entryA->path, entryB->path);
 }
 
 // Save the index to .pes/index atomically.
 int index_save(const Index *index) {
-    // Create a mutable copy of the index to sort it before saving
-    Index sorted_index = *index;
-    qsort(sorted_index.entries, sorted_index.count, sizeof(IndexEntry), compare_index_entries);
+    // Create an array of pointers to sort them, avoiding a 5.6MB stack copy
+    const IndexEntry **sorted_entries = malloc(index->count * sizeof(const IndexEntry *));
+    if (!sorted_entries && index->count > 0) return -1;
+
+    for (int i = 0; i < index->count; i++) {
+        sorted_entries[i] = &index->entries[i];
+    }
+    qsort(sorted_entries, index->count, sizeof(const IndexEntry *), compare_index_entries);
 
     // Create temp file for atomic write
     char temp_path[512];
     snprintf(temp_path, sizeof(temp_path), "%s.tmp", INDEX_FILE);
     
     FILE *f = fopen(temp_path, "w");
-    if (!f) return -1;
+    if (!f) {
+        free(sorted_entries);
+        return -1;
+    }
 
     // Write entries to the temp file
     char hex_hash[HASH_HEX_SIZE + 1];
-    for (int i = 0; i < sorted_index.count; i++) {
-        const IndexEntry *e = &sorted_index.entries[i];
+    for (int i = 0; i < index->count; i++) {
+        const IndexEntry *e = sorted_entries[i];
         hash_to_hex(&e->hash, hex_hash);
         
         // Format: <mode-octal> <hex-hash> <mtime-seconds> <size> <path>
@@ -197,9 +207,11 @@ int index_save(const Index *index) {
                     e->mode, hex_hash, (unsigned long long)e->mtime_sec, e->size, e->path) < 0) {
             fclose(f);
             unlink(temp_path);
+            free(sorted_entries);
             return -1;
         }
     }
+    free(sorted_entries);
 
     // Flush and sync to disk before rename
     fflush(f);
